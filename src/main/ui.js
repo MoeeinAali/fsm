@@ -11,6 +11,7 @@ function wireUI() {
 	var svgBtn = document.getElementById('btn-svg');
 	var latexBtn = document.getElementById('btn-latex');
 	var titleEl = document.getElementById('current-fsm-name');
+	var themeBtn = document.getElementById('btn-theme');
 
 	function switchToFsm(id) {
 		if (id === Workspace.getActiveId()) return;
@@ -125,6 +126,29 @@ function wireUI() {
 	bindExport(pngBtn, saveAsPNG);
 	bindExport(svgBtn, saveAsSVG);
 	bindExport(latexBtn, saveAsLaTeX);
+
+	function updateThemeButton() {
+		if (!themeBtn) return;
+		var mode = Theme.get();
+		var label = mode === 'system' ? 'Auto'
+		          : mode === 'light'  ? 'Light'
+		          : 'Dark';
+		var icon = mode === 'system' ? '◐'
+		         : mode === 'light'  ? '☀'
+		         : '☾';
+		themeBtn.textContent = icon + ' ' + label;
+		themeBtn.setAttribute('aria-label', 'Theme: ' + label + ' (click to change)');
+		themeBtn.title = 'Theme: ' + label + ' (click to cycle)';
+	}
+
+	if (themeBtn && typeof Theme !== 'undefined') {
+		themeBtn.onclick = function() { Theme.cycle(); };
+		Theme.onChange(function() {
+			updateThemeButton();
+			draw(); // re-render canvas with new theme colors
+		});
+		updateThemeButton();
+	}
 
 	Workspace.onChange(function() { renderSidebar(); updateTitle(); });
 	History.onChange(updateToolbar);

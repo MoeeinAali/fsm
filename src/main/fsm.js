@@ -102,24 +102,38 @@ var currentLink = null; // a Link
 var movingObject = false;
 var originalClick;
 
-function drawUsing(c) {
+function getDrawColors() {
+	try {
+		var s = getComputedStyle(document.body);
+		var fg = (s.getPropertyValue('--canvas-fg') || '').trim();
+		var sel = (s.getPropertyValue('--canvas-selected') || '').trim();
+		return { fg: fg || 'black', selected: sel || 'blue' };
+	} catch (e) {
+		return { fg: 'black', selected: 'blue' };
+	}
+}
+
+var EXPORT_COLORS = { fg: 'black', selected: 'black' };
+
+function drawUsing(c, colors) {
+	colors = colors || getDrawColors();
 	c.clearRect(0, 0, canvas.width, canvas.height);
 	c.save();
 	c.translate(0.5, 0.5);
 
 	for(var i = 0; i < nodes.length; i++) {
 		c.lineWidth = 1;
-		c.fillStyle = c.strokeStyle = (nodes[i] == selectedObject) ? 'blue' : 'black';
+		c.fillStyle = c.strokeStyle = (nodes[i] == selectedObject) ? colors.selected : colors.fg;
 		nodes[i].draw(c);
 	}
 	for(var i = 0; i < links.length; i++) {
 		c.lineWidth = 1;
-		c.fillStyle = c.strokeStyle = (links[i] == selectedObject) ? 'blue' : 'black';
+		c.fillStyle = c.strokeStyle = (links[i] == selectedObject) ? colors.selected : colors.fg;
 		links[i].draw(c);
 	}
 	if(currentLink != null) {
 		c.lineWidth = 1;
-		c.fillStyle = c.strokeStyle = 'black';
+		c.fillStyle = c.strokeStyle = colors.fg;
 		currentLink.draw(c);
 	}
 
@@ -162,6 +176,7 @@ function snapNode(node) {
 window.onload = function() {
 	canvas = document.getElementById('canvas');
 
+	if (typeof Theme !== 'undefined') Theme.init();
 	Workspace.init();
 	restoreBackup();
 	History.reset(snapshotJSON());
@@ -432,10 +447,17 @@ function crossBrowserMousePos(e) {
 function crossBrowserRelativeMousePos(e) {
 	var element = crossBrowserElementPos(e);
 	var mouse = crossBrowserMousePos(e);
-	return {
-		'x': mouse.x - element.x,
-		'y': mouse.y - element.y
-	};
+	var x = mouse.x - element.x;
+	var y = mouse.y - element.y;
+	// Account for CSS scaling of the canvas (width:100%) so mouse maps to buffer coords.
+	if (canvas) {
+		var rect = canvas.getBoundingClientRect();
+		if (rect.width && rect.height) {
+			x *= canvas.width / rect.width;
+			y *= canvas.height / rect.height;
+		}
+	}
+	return { 'x': x, 'y': y };
 }
 
 function output(text) {
@@ -447,17 +469,18 @@ function output(text) {
 function saveAsPNG() {
 	var oldSelectedObject = selectedObject;
 	selectedObject = null;
-	drawUsing(canvas.getContext('2d'));
+	drawUsing(canvas.getContext('2d'), EXPORT_COLORS);
 	selectedObject = oldSelectedObject;
 	var pngData = canvas.toDataURL('image/png');
-	document.location.href = pngData;
+	draw(); // restore on-screen with theme colors
+	open(pngData, '_blank');
 }
 
 function saveAsSVG() {
 	var exporter = new ExportAsSVG();
 	var oldSelectedObject = selectedObject;
 	selectedObject = null;
-	drawUsing(exporter);
+	drawUsing(exporter, EXPORT_COLORS);
 	selectedObject = oldSelectedObject;
 	var svgData = exporter.toSVG();
 	output(svgData);
@@ -469,7 +492,7 @@ function saveAsLaTeX() {
 	var exporter = new ExportAsLaTeX();
 	var oldSelectedObject = selectedObject;
 	selectedObject = null;
-	drawUsing(exporter);
+	drawUsing(exporter, EXPORT_COLORS);
 	selectedObject = oldSelectedObject;
 	var texData = exporter.toLaTeX();
 	output(texData);

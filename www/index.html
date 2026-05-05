@@ -4,21 +4,114 @@
 	<title>Finite State Machine Designer</title>
 	<meta charset="utf-8">
 	<meta name="viewport" content="width=device-width, initial-scale=1">
+	<script>
+		// Anti-FOUC: apply saved theme before first paint.
+		(function() {
+			try {
+				var t = localStorage.getItem('fsm_theme');
+				if (t === 'light' || t === 'dark') {
+					document.documentElement.setAttribute('data-theme', t);
+				}
+			} catch (e) {}
+		})();
+	</script>
 	<style>
+:root {
+	color-scheme: light dark;
+	--bg: #f5f5f5;
+	--surface: #ffffff;
+	--text: #1a1a1a;
+	--text-strong: #000000;
+	--text-muted: #888888;
+	--text-subtle: #444444;
+	--border: #e8e8e8;
+	--border-strong: #d8d8d8;
+	--border-subtle: #e2e2e2;
+	--hover-bg: #f1f1f1;
+	--accent: #1a1a1a;
+	--accent-text: #ffffff;
+	--accent-hover: #333333;
+	--kbd-bg: #f1f1f1;
+	--kbd-border: #d8d8d8;
+	--kbd-text: #333333;
+	--textarea-bg: #fafafa;
+	--error: #c00000;
+	--canvas-bg: #ffffff;
+	--canvas-fg: #000000;
+	--canvas-selected: #0000ff;
+	--icon-hover-bg: rgba(0, 0, 0, 0.08);
+	--icon-hover-bg-on-accent: rgba(255, 255, 255, 0.18);
+}
+
+@media (prefers-color-scheme: dark) {
+	:root:not([data-theme="light"]) {
+		--bg: #0e0e0e;
+		--surface: #1a1a1a;
+		--text: #e6e6e6;
+		--text-strong: #ffffff;
+		--text-muted: #888888;
+		--text-subtle: #b8b8b8;
+		--border: #2a2a2a;
+		--border-strong: #3a3a3a;
+		--border-subtle: #2a2a2a;
+		--hover-bg: #232323;
+		--accent: #e6e6e6;
+		--accent-text: #0e0e0e;
+		--accent-hover: #ffffff;
+		--kbd-bg: #232323;
+		--kbd-border: #3a3a3a;
+		--kbd-text: #dddddd;
+		--textarea-bg: #161616;
+		--error: #ff6b6b;
+		--canvas-bg: #161616;
+		--canvas-fg: #e6e6e6;
+		--canvas-selected: #5fa9ff;
+		--icon-hover-bg: rgba(255, 255, 255, 0.10);
+		--icon-hover-bg-on-accent: rgba(0, 0, 0, 0.15);
+	}
+}
+
+:root[data-theme="dark"] {
+	--bg: #0e0e0e;
+	--surface: #1a1a1a;
+	--text: #e6e6e6;
+	--text-strong: #ffffff;
+	--text-muted: #888888;
+	--text-subtle: #b8b8b8;
+	--border: #2a2a2a;
+	--border-strong: #3a3a3a;
+	--border-subtle: #2a2a2a;
+	--hover-bg: #232323;
+	--accent: #e6e6e6;
+	--accent-text: #0e0e0e;
+	--accent-hover: #ffffff;
+	--kbd-bg: #232323;
+	--kbd-border: #3a3a3a;
+	--kbd-text: #dddddd;
+	--textarea-bg: #161616;
+	--error: #ff6b6b;
+	--canvas-bg: #161616;
+	--canvas-fg: #e6e6e6;
+	--canvas-selected: #5fa9ff;
+	--icon-hover-bg: rgba(255, 255, 255, 0.10);
+	--icon-hover-bg-on-accent: rgba(0, 0, 0, 0.15);
+}
+
 * { box-sizing: border-box; }
 html, body { margin: 0; padding: 0; }
 
 body {
-	background: #f5f5f5;
-	color: #1a1a1a;
+	background: var(--bg);
+	color: var(--text);
 	font: 14px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", "Lucida Grande", sans-serif;
 	min-height: 100vh;
 	display: flex;
 	flex-direction: column;
+	transition: background 0.15s, color 0.15s;
 }
 
-a { color: #1a1a1a; }
-a:hover { color: #000; }
+a { color: var(--text); }
+a:hover { color: var(--text-strong); }
 
 header {
 	text-align: center;
@@ -28,9 +121,10 @@ header h1 {
 	margin: 0;
 	font: italic 600 32px/1.2 Georgia, serif;
 	letter-spacing: -0.5px;
+	color: var(--text-strong);
 }
 header .subtitle {
-	color: #888;
+	color: var(--text-muted);
 	font-size: 13px;
 	margin-top: 6px;
 }
@@ -47,13 +141,14 @@ main {
 }
 
 aside.sidebar {
-	background: #fff;
-	border: 1px solid #e8e8e8;
+	background: var(--surface);
+	border: 1px solid var(--border);
 	border-radius: 12px;
 	padding: 14px;
 	align-self: start;
 	position: sticky;
 	top: 16px;
+	transition: background 0.15s, border-color 0.15s;
 }
 .sidebar-header {
 	display: flex;
@@ -66,12 +161,12 @@ aside.sidebar {
 	font-size: 11px;
 	text-transform: uppercase;
 	letter-spacing: 0.8px;
-	color: #888;
+	color: var(--text-muted);
 	font-weight: 600;
 }
 .btn-new-fsm {
-	background: #1a1a1a;
-	color: #fff;
+	background: var(--accent);
+	color: var(--accent-text);
 	border: 0;
 	border-radius: 6px;
 	padding: 4px 10px;
@@ -80,7 +175,7 @@ aside.sidebar {
 	cursor: pointer;
 	transition: background 0.15s;
 }
-.btn-new-fsm:hover { background: #333; }
+.btn-new-fsm:hover { background: var(--accent-hover); }
 
 .fsm-list {
 	list-style: none;
@@ -98,12 +193,12 @@ aside.sidebar {
 	cursor: pointer;
 	transition: background 0.1s;
 }
-.fsm-list li:hover { background: #f1f1f1; }
+.fsm-list li:hover { background: var(--hover-bg); }
 .fsm-list li.active {
-	background: #1a1a1a;
-	color: #fff;
+	background: var(--accent);
+	color: var(--accent-text);
 }
-.fsm-list li.active:hover { background: #1a1a1a; }
+.fsm-list li.active:hover { background: var(--accent); }
 .fsm-list .name {
 	flex: 1;
 	overflow: hidden;
@@ -124,14 +219,14 @@ aside.sidebar {
 }
 .fsm-list li:hover button.icon { opacity: 0.5; }
 .fsm-list li.active button.icon { opacity: 0.6; }
-.fsm-list button.icon:hover { opacity: 1 !important; background: rgba(0,0,0,0.08); }
-.fsm-list li.active button.icon:hover { background: rgba(255,255,255,0.18); }
+.fsm-list button.icon:hover { opacity: 1 !important; background: var(--icon-hover-bg); }
+.fsm-list li.active button.icon:hover { background: var(--icon-hover-bg-on-accent); }
 
 section.canvas-area { min-width: 0; }
 
 .toolbar {
-	background: #fff;
-	border: 1px solid #e8e8e8;
+	background: var(--surface);
+	border: 1px solid var(--border);
 	border-radius: 12px;
 	padding: 8px;
 	display: flex;
@@ -139,21 +234,22 @@ section.canvas-area { min-width: 0; }
 	gap: 4px;
 	margin-bottom: 12px;
 	flex-wrap: wrap;
+	transition: background 0.15s, border-color 0.15s;
 }
 .toolbar button {
-	background: #fff;
-	border: 1px solid #e2e2e2;
+	background: var(--surface);
+	border: 1px solid var(--border-subtle);
 	border-radius: 7px;
 	padding: 6px 12px;
 	font: inherit;
 	font-size: 13px;
-	color: #1a1a1a;
+	color: var(--text);
 	cursor: pointer;
-	transition: background 0.1s, border-color 0.1s;
+	transition: background 0.1s, border-color 0.1s, color 0.1s;
 }
 .toolbar button:hover:not(:disabled) {
-	background: #f5f5f5;
-	border-color: #ccc;
+	background: var(--hover-bg);
+	border-color: var(--border-strong);
 }
 .toolbar button:disabled {
 	opacity: 0.4;
@@ -162,17 +258,17 @@ section.canvas-area { min-width: 0; }
 .toolbar .sep {
 	width: 1px;
 	height: 22px;
-	background: #e2e2e2;
+	background: var(--border-subtle);
 	margin: 0 4px;
 }
 .toolbar .spacer { flex: 1; }
 .toolbar .label {
-	color: #888;
+	color: var(--text-muted);
 	font-size: 12px;
 	margin-right: 6px;
 }
 .toolbar .current-name {
-	color: #444;
+	color: var(--text-subtle);
 	font-size: 13px;
 	font-weight: 500;
 	padding: 0 6px;
@@ -181,13 +277,18 @@ section.canvas-area { min-width: 0; }
 	text-overflow: ellipsis;
 	white-space: nowrap;
 }
+#btn-theme {
+	min-width: 86px;
+	text-align: center;
+}
 
 canvas {
 	display: block;
-	background: #fff;
-	border: 1px solid #e8e8e8;
+	background: var(--canvas-bg);
+	border: 1px solid var(--border);
 	border-radius: 12px;
 	width: 100%;
+	transition: background 0.15s, border-color 0.15s;
 }
 
 .canvas-wrap { overflow-x: auto; }
@@ -199,26 +300,28 @@ textarea#output {
 	margin-top: 12px;
 	padding: 12px;
 	font: 12px/1.5 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-	border: 1px solid #e8e8e8;
+	border: 1px solid var(--border);
 	border-radius: 10px;
 	resize: vertical;
-	background: #fafafa;
+	background: var(--textarea-bg);
+	color: var(--text);
 }
 
 .help {
-	background: #fff;
-	border: 1px solid #e8e8e8;
+	background: var(--surface);
+	border: 1px solid var(--border);
 	border-radius: 12px;
 	padding: 16px 20px;
 	margin-top: 16px;
-	color: #444;
+	color: var(--text-subtle);
+	transition: background 0.15s, border-color 0.15s, color 0.15s;
 }
 .help h3 {
 	margin: 0 0 10px;
 	font-size: 11px;
 	text-transform: uppercase;
 	letter-spacing: 0.8px;
-	color: #888;
+	color: var(--text-muted);
 	font-weight: 600;
 }
 .help-grid {
@@ -231,32 +334,33 @@ textarea#output {
 	padding-left: 18px;
 }
 .help li { margin: 4px 0; font-size: 13px; }
-.help b { color: #1a1a1a; }
+.help b { color: var(--text-strong); }
 .help kbd {
-	background: #f1f1f1;
-	border: 1px solid #d8d8d8;
+	background: var(--kbd-bg);
+	border: 1px solid var(--kbd-border);
 	border-bottom-width: 2px;
 	border-radius: 4px;
 	padding: 1px 6px;
 	font: 11px/1 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-	color: #333;
+	color: var(--kbd-text);
 }
 
 footer {
 	text-align: center;
 	padding: 24px 20px;
-	color: #888;
+	color: var(--text-muted);
 	font-size: 12px;
-	border-top: 1px solid #e8e8e8;
+	border-top: 1px solid var(--border);
 	margin-top: 20px;
-	background: #fff;
+	background: var(--surface);
+	transition: background 0.15s, border-color 0.15s;
 }
-footer a { color: #1a1a1a; text-decoration: none; border-bottom: 1px dotted #aaa; }
-footer a:hover { border-bottom-color: #1a1a1a; }
+footer a { color: var(--text); text-decoration: none; border-bottom: 1px dotted var(--text-muted); }
+footer a:hover { border-bottom-color: var(--text-strong); color: var(--text-strong); }
 
 .error {
 	display: block;
-	color: #c00;
+	color: var(--error);
 	font-size: 22px;
 	line-height: 30px;
 	padding: 30px;
@@ -329,6 +433,8 @@ if (typeof btoa == 'undefined') {
 				<button id="btn-clear" title="Clear current FSM">Clear</button>
 				<span class="current-name" id="current-fsm-name"></span>
 				<span class="spacer"></span>
+				<button id="btn-theme" title="Theme">◐ Auto</button>
+				<span class="sep"></span>
 				<span class="label">Export:</span>
 				<button id="btn-png">PNG</button>
 				<button id="btn-svg">SVG</button>
