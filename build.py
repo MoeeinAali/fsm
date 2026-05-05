@@ -1,17 +1,17 @@
-#!/usr/bin/python
+#!/usr/bin/env python3
 
 import os, time, sys
 
 def sources():
 	path = './src/'
-	return [os.path.join(base, f) for base, folders, files in os.walk(path) for f in files if f.endswith('.js')]
+	return [os.path.join(base, f) for base, folders, files in os.walk(path) for f in sorted(files) if f.endswith('.js')]
 
 def build():
 	path = './www/fsm.js'
 	data = '\n'.join(open(file, 'r').read() for file in sources())
 	with open(path, 'w') as f:
 		f.write(data)
-	print 'built %s (%u bytes)' % (path, len(data))
+	print('built %s (%u bytes)' % (path, len(data)))
 
 def stat():
 	return [os.stat(file).st_mtime for file in sources()]

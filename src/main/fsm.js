@@ -161,11 +161,18 @@ function snapNode(node) {
 
 window.onload = function() {
 	canvas = document.getElementById('canvas');
+
+	Workspace.init();
 	restoreBackup();
+	History.reset(snapshotJSON());
+
+	if (typeof wireUI === 'function') wireUI();
+
 	draw();
 
 	canvas.onmousedown = function(e) {
 		var mouse = crossBrowserRelativeMousePos(e);
+		flushHistory();
 		selectedObject = selectObject(mouse.x, mouse.y);
 		movingObject = false;
 		originalClick = mouse;
@@ -199,6 +206,7 @@ window.onload = function() {
 
 	canvas.ondblclick = function(e) {
 		var mouse = crossBrowserRelativeMousePos(e);
+		flushHistory();
 		selectedObject = selectObject(mouse.x, mouse.y);
 
 		if(selectedObject == null) {
@@ -206,9 +214,11 @@ window.onload = function() {
 			nodes.push(selectedObject);
 			resetCaret();
 			draw();
+			commitHistory();
 		} else if(selectedObject instanceof Node) {
 			selectedObject.isAcceptState = !selectedObject.isAcceptState;
 			draw();
+			commitHistory();
 		}
 	};
 
@@ -249,6 +259,7 @@ window.onload = function() {
 	};
 
 	canvas.onmouseup = function(e) {
+		var didChange = movingObject;
 		movingObject = false;
 
 		if(currentLink != null) {
@@ -256,47 +267,112 @@ window.onload = function() {
 				selectedObject = currentLink;
 				links.push(currentLink);
 				resetCaret();
+				didChange = true;
 			}
 			currentLink = null;
 			draw();
 		}
+
+		if (didChange) commitHistory();
 	};
 }
 
 var shift = false;
 
+function deleteSelected() {
+	if (selectedObject == null) return;
+	flushHistory();
+	for(var i = 0; i < nodes.length; i++) {
+		if(nodes[i] == selectedObject) {
+			nodes.splice(i--, 1);
+		}
+	}
+	for(var i = 0; i < links.length; i++) {
+		if(links[i] == selectedObject || links[i].node == selectedObject || links[i].nodeA == selectedObject || links[i].nodeB == selectedObject) {
+			links.splice(i--, 1);
+		}
+	}
+	selectedObject = null;
+	commitHistory();
+	draw();
+}
+
+function clearAll() {
+	if (nodes.length === 0 && links.length === 0) return;
+	if (!confirm('Clear all states and arrows in this FSM?')) return;
+	flushHistory();
+	nodes.length = 0;
+	links.length = 0;
+	selectedObject = null;
+	commitHistory();
+	draw();
+}
+
+function performUndo() {
+	flushHistory();
+	var snap = History.undo();
+	if (snap == null) return;
+	loadSnapshotJSON(snap);
+	saveBackup();
+	draw();
+}
+
+function performRedo() {
+	flushHistory();
+	var snap = History.redo();
+	if (snap == null) return;
+	loadSnapshotJSON(snap);
+	saveBackup();
+	draw();
+}
+
+function isEditableTarget(target) {
+	if (!target) return false;
+	var tag = target.tagName;
+	if (tag === 'INPUT' || tag === 'TEXTAREA' || target.isContentEditable) return true;
+	return false;
+}
+
 document.onkeydown = function(e) {
 	var key = crossBrowserKey(e);
+	var meta = e.metaKey || e.ctrlKey;
+	var target = e.target || e.srcElement;
 
-	if(key == 16) {
+	// Global shortcuts (work regardless of focus, except in editable fields).
+	if (meta && !isEditableTarget(target)) {
+		if (key === 90 || key === 122) { // Z / z
+			if (e.shiftKey) performRedo();
+			else performUndo();
+			e.preventDefault();
+			return false;
+		}
+		if (key === 89 || key === 121) { // Y / y
+			performRedo();
+			e.preventDefault();
+			return false;
+		}
+	}
+
+	if (key == 16) {
 		shift = true;
-	} else if(!canvasHasFocus()) {
+	} else if (!canvasHasFocus()) {
 		// don't read keystrokes when other things have focus
 		return true;
-	} else if(key == 8) { // backspace key
-		if(selectedObject != null && 'text' in selectedObject) {
+	} else if (key == 8) { // backspace
+		if (meta) {
+			// Cmd/Ctrl+Backspace = delete selected (treat like Delete key)
+			deleteSelected();
+		} else if (selectedObject != null && 'text' in selectedObject) {
 			selectedObject.text = selectedObject.text.substr(0, selectedObject.text.length - 1);
 			resetCaret();
 			draw();
+			commitHistoryDebounced();
 		}
 
 		// backspace is a shortcut for the back button, but do NOT want to change pages
 		return false;
-	} else if(key == 46) { // delete key
-		if(selectedObject != null) {
-			for(var i = 0; i < nodes.length; i++) {
-				if(nodes[i] == selectedObject) {
-					nodes.splice(i--, 1);
-				}
-			}
-			for(var i = 0; i < links.length; i++) {
-				if(links[i] == selectedObject || links[i].node == selectedObject || links[i].nodeA == selectedObject || links[i].nodeB == selectedObject) {
-					links.splice(i--, 1);
-				}
-			}
-			selectedObject = null;
-			draw();
-		}
+	} else if (key == 46) { // delete key
+		deleteSelected();
 	}
 };
 
@@ -318,6 +394,7 @@ document.onkeypress = function(e) {
 		selectedObject.text += String.fromCharCode(key);
 		resetCaret();
 		draw();
+		commitHistoryDebounced();
 
 		// don't let keys do their actions (like space scrolls down the page)
 		return false;
