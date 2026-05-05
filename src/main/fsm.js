@@ -532,12 +532,6 @@ function crossBrowserRelativeMousePos(e) {
   return { x: x, y: y };
 }
 
-function output(text) {
-  var element = document.getElementById("output");
-  element.style.display = "block";
-  element.value = text;
-}
-
 function saveAsPNG() {
   var oldSelectedObject = selectedObject;
   selectedObject = null;
@@ -545,7 +539,9 @@ function saveAsPNG() {
   selectedObject = oldSelectedObject;
   var pngData = canvas.toDataURL("image/png");
   draw(); // restore on-screen with theme colors
-  open(pngData, "_blank");
+  var ok = downloadDataURL(activeFSMFileName("png"), pngData);
+  if (ok) showToast("PNG downloaded");
+  else showToast("Could not download PNG", "error");
 }
 
 function saveAsSVG() {
@@ -555,9 +551,13 @@ function saveAsSVG() {
   drawUsing(exporter, EXPORT_COLORS);
   selectedObject = oldSelectedObject;
   var svgData = exporter.toSVG();
-  output(svgData);
-  // Chrome isn't ready for this yet, the 'Save As' menu item is disabled
-  // document.location.href = 'data:image/svg+xml;base64,' + btoa(svgData);
+  var ok = downloadBlob(
+    activeFSMFileName("svg"),
+    svgData,
+    "image/svg+xml;charset=utf-8",
+  );
+  if (ok) showToast("SVG downloaded");
+  else showToast("Could not download SVG", "error");
 }
 
 function saveAsLaTeX() {
@@ -567,5 +567,8 @@ function saveAsLaTeX() {
   drawUsing(exporter, EXPORT_COLORS);
   selectedObject = oldSelectedObject;
   var texData = exporter.toLaTeX();
-  output(texData);
+  Promise.resolve(copyToClipboard(texData)).then(function (ok) {
+    if (ok) showToast("LaTeX copied to clipboard");
+    else showToast("Could not copy — clipboard blocked", "error");
+  });
 }
